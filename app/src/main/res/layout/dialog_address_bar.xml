@@ -3,30 +3,52 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp"
+    android:padding="28dp"
     android:background="@color/bg_dialog">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Navigate to..."
+        android:text="Type a URL or search term, then press Enter or GO"
         android:textColor="@color/text_secondary"
-        android:textSize="14sp"
-        android:layout_marginBottom="12dp" />
+        android:textSize="13sp"
+        android:layout_marginBottom="16dp" />
 
-    <EditText
-        android:id="@+id/address_input"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="@drawable/input_bg"
-        android:textColor="@color/text_primary"
-        android:textSize="18sp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:singleLine="true"
-        android:imeOptions="actionGo"
-        android:inputType="textUri"
-        android:hint="Search or enter URL"
-        android:textColorHint="@color/text_hint" />
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/address_input"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/input_bg"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:singleLine="true"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:hint="google.com or search term"
+            android:textColorHint="@color/text_hint"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/btn_go"
+            android:layout_width="72dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="GO"
+            android:textColor="@color/bg_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/go_btn_bg" />
+
+    </LinearLayout>
 
 </LinearLayout>

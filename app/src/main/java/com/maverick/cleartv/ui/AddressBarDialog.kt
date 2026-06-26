@@ -5,10 +5,12 @@ import android.app.AlertDialog
 import android.content.Context
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.TextView
 import com.maverick.cleartv.R
 
 object AddressBarDialog {
@@ -16,6 +18,7 @@ object AddressBarDialog {
     fun show(activity: Activity, currentUrl: String, onNavigate: (String) -> Unit) {
         val view = LayoutInflater.from(activity).inflate(R.layout.dialog_address_bar, null)
         val editText = view.findViewById<EditText>(R.id.address_input)
+        val goBtn = view.findViewById<TextView>(R.id.btn_go)
 
         editText.setText(currentUrl)
         editText.selectAll()
@@ -24,8 +27,8 @@ object AddressBarDialog {
             .setView(view)
             .create()
 
-        // Force keyboard to appear when dialog opens
-        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+        // Hide TV on-screen keyboard — hardware keyboard captures input directly
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
 
         fun navigate() {
             val input = editText.text.toString().trim()
@@ -50,13 +53,14 @@ object AddressBarDialog {
             } else false
         }
 
+        // Clickable Go button
+        goBtn.setOnClickListener { navigate() }
+
         dialog.show()
         editText.requestFocus()
 
-        // Explicitly show IME after layout pass
+        // Hide TV on-screen keyboard — hardware keyboard types directly
         val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        editText.post {
-            imm.showSoftInput(editText, InputMethodManager.SHOW_FORCED)
-        }
+        editText.post { imm.hideSoftInputFromWindow(editText.windowToken, 0) }
     }
 }
