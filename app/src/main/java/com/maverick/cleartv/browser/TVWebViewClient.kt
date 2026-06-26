@@ -8,11 +8,12 @@ import android.webkit.WebViewClient
 import com.maverick.cleartv.adblock.AdBlockEngine
 import java.io.ByteArrayInputStream
 
-class TVWebViewClient(
+open class TVWebViewClient(
     private val adBlockEngine: AdBlockEngine,
     private val onPageStarted: (String) -> Unit,
     private val onPageFinished: (String, String?) -> Unit,
-    private val onProgressChanged: (Int) -> Unit
+    private val onProgressChanged: (Int) -> Unit,
+    private val onRequestBlocked: (() -> Unit)? = null
 ) : WebViewClient() {
 
     private val cosmeticInjectionJs = """
@@ -55,6 +56,7 @@ class TVWebViewClient(
         val host = request.url.host ?: ""
 
         if (adBlockEngine.shouldBlock(url, host)) {
+            onRequestBlocked?.invoke()
             return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
         }
         return null

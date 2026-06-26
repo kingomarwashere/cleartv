@@ -61,7 +61,7 @@ class BrowserActivity : Activity() {
     private fun setupWebView() {
         val app = application as ClearTVApp
 
-        val trackingWebViewClient = object : TVWebViewClient(
+        webView.webViewClient = TVWebViewClient(
             adBlockEngine = app.adBlockEngine,
             onPageStarted = { url ->
                 runOnUiThread {
@@ -79,22 +79,12 @@ class BrowserActivity : Activity() {
             },
             onProgressChanged = { progress ->
                 runOnUiThread { progressBar.progress = progress }
+            },
+            onRequestBlocked = {
+                blockedCount++
+                runOnUiThread { updateBlockedCount() }
             }
-        ) {
-            override fun shouldInterceptRequest(
-                view: android.webkit.WebView,
-                request: android.webkit.WebResourceRequest
-            ): android.webkit.WebResourceResponse? {
-                val result = super.shouldInterceptRequest(view, request)
-                if (result != null) {
-                    blockedCount++
-                    runOnUiThread { updateBlockedCount() }
-                }
-                return result
-            }
-        }
-
-        webView.webViewClient = trackingWebViewClient
+        )
 
         webView.webChromeClient = TVWebChromeClient(
             rootView = fullscreenContainer,
