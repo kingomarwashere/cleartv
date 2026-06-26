@@ -7,12 +7,15 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.maverick.cleartv.ClearTVApp
 import com.maverick.cleartv.R
-import com.maverick.cleartv.ui.AddressBarDialog
 import com.maverick.cleartv.ui.HomeActivity
 
 class BrowserActivity : Activity() {
@@ -20,48 +23,108 @@ class BrowserActivity : Activity() {
     private lateinit var webView: TVWebView
     private lateinit var progressBar: ProgressBar
     private lateinit var urlBar: TextView
+    private lateinit var urlInput: EditText
     private lateinit var blockedCountView: TextView
     private lateinit var fullscreenContainer: FrameLayout
     private lateinit var browserContainer: FrameLayout
+    private lateinit var toolbarBrowse: LinearLayout
+    private lateinit var toolbarEdit: LinearLayout
 
     private var blockedCount = 0
+    private var isEditMode = false
 
     companion object {
         const val EXTRA_URL = "url"
         fun start(activity: Activity, url: String) {
-            val intent = Intent(activity, BrowserActivity::class.java).apply {
+            activity.startActivity(Intent(activity, BrowserActivity::class.java).apply {
                 putExtra(EXTRA_URL, url)
-            }
-            activity.startActivity(intent)
+            })
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Never let the system resize the layout for the keyboard
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         setContentView(R.layout.activity_browser)
 
         fullscreenContainer = findViewById(R.id.fullscreen_container)
         browserContainer = findViewById(R.id.browser_container)
         progressBar = findViewById(R.id.progress_bar)
         urlBar = findViewById(R.id.url_bar)
+        urlInput = findViewById(R.id.url_input)
         blockedCountView = findViewById(R.id.blocked_count)
+        toolbarBrowse = findViewById(R.id.toolbar_browse)
+        toolbarEdit = findViewById(R.id.toolbar_edit)
+
         webView = TVWebView(this)
         browserContainer.addView(webView, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
 
-        // Nav bar buttons
-        findViewById<TextView>(R.id.btn_home).setOnClickListener { goHome() }
-        findViewById<TextView>(R.id.btn_back).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
-        findViewById<TextView>(R.id.btn_forward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
-        urlBar.setOnClickListener { showAddressBar() }
-
         setupWebView()
+        setupToolbar()
 
         val url = intent.getStringExtra(EXTRA_URL) ?: "https://www.google.com"
         webView.loadSmart(url)
+    }
+
+    private fun setupToolbar() {
+        findViewById<TextView>(R.id.btn_home).setOnClickListener { goHome() }
+        findViewById<TextView>(R.id.btn_back).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
+        findViewById<TextView>(R.id.btn_forward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
+        urlBar.setOnClickListener { enterEditMode() }
+        urlBar.setOnFocusChangeListener { _, focused -> if (focused) enterEditMode() }
+
+        findViewById<TextView>(R.id.btn_cancel).setOnClickListener { exitEditMode() }
+        findViewById<TextView>(R.id.btn_go).setOnClickListener { commitUrl() }
+
+        urlInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
+                commitUrl(); true
+            } else false
+        }
+
+        urlInput.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { commitUrl(); true }
+                    KeyEvent.KEYCODE_ESCAPE -> { exitEditMode(); true }
+                    else -> false
+                }
+            } else false
+        }
+    }
+
+    private fun enterEditMode() {
+        isEditMode = true
+        toolbarBrowse.visibility = View.GONE
+        toolbarEdit.visibility = View.VISIBLE
+        urlInput.setText(webView.url ?: "")
+        urlInput.selectAll()
+        urlInput.requestFocus()
+        // Hide IME — Mac keyboard types directly, no TV keyboard needed
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(urlInput.windowToken, 0)
+    }
+
+    private fun exitEditMode() {
+        isEditMode = false
+        toolbarEdit.visibility = View.GONE
+        toolbarBrowse.visibility = View.VISIBLE
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(urlInput.windowToken, 0)
+        webView.requestFocus()
+    }
+
+    private fun commitUrl() {
+        val input = urlInput.text.toString().trim()
+        if (input.isNotEmpty()) {
+            webView.loadSmart(input)
+        }
+        exitEditMode()
     }
 
     private fun setupWebView() {
@@ -98,13 +161,13 @@ class BrowserActivity : Activity() {
                 runOnUiThread { progressBar.progress = progress }
             },
             onTitleReceived = { title ->
-                runOnUiThread { urlBar.text = title }
+                runOnUiThread { if (!isEditMode) urlBar.text = title }
             },
             onFullscreenEnter = { view ->
                 runOnUiThread {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                    toolbarBrowse.visibility = View.GONE
+                    toolbarEdit.visibility = View.GONE
                     browserContainer.visibility = View.GONE
-                    findViewById<View>(R.id.browser_toolbar).visibility = View.GONE
                     fullscreenContainer.addView(view, ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -114,47 +177,17 @@ class BrowserActivity : Activity() {
             },
             onFullscreenExit = {
                 runOnUiThread {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
                     fullscreenContainer.removeAllViews()
                     fullscreenContainer.visibility = View.GONE
                     browserContainer.visibility = View.VISIBLE
-                    findViewById<View>(R.id.browser_toolbar).visibility = View.VISIBLE
+                    toolbarBrowse.visibility = View.VISIBLE
                 }
             }
         )
     }
 
     private fun updateBlockedCount() {
-        blockedCountView.text = if (blockedCount > 0) "🛡 $blockedCount blocked" else ""
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        val chromeClient = webView.webChromeClient as? TVWebChromeClient
-
-        when (keyCode) {
-            KeyEvent.KEYCODE_BACK -> {
-                if (chromeClient?.isInFullscreen() == true) {
-                    chromeClient.exitFullscreen()
-                    return true
-                }
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                    return true
-                }
-                return false
-            }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SEARCH -> {
-                showAddressBar()
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (event.isLongPress) {
-                    showAddressBar()
-                    return true
-                }
-            }
-        }
-        return super.onKeyDown(keyCode, event)
+        blockedCountView.text = if (blockedCount > 0) "🛡 $blockedCount" else ""
     }
 
     private fun goHome() {
@@ -163,24 +196,39 @@ class BrowserActivity : Activity() {
         })
     }
 
-    private fun showAddressBar() {
-        AddressBarDialog.show(this, webView.url ?: "") { input ->
-            webView.loadSmart(input)
+    // Route D-pad: down from WebView → focus toolbar; up from toolbar → WebView
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (webView.hasFocus() && !isEditMode) {
+                        findViewById<TextView>(R.id.btn_home).requestFocus()
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (toolbarBrowse.hasFocus() || toolbarEdit.hasFocus()) {
+                        webView.requestFocus()
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    val chromeClient = webView.webChromeClient as? TVWebChromeClient
+                    if (isEditMode) { exitEditMode(); return true }
+                    if (chromeClient?.isInFullscreen() == true) { chromeClient.exitFullscreen(); return true }
+                    if (webView.canGoBack()) { webView.goBack(); return true }
+                    return false
+                }
+                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SEARCH -> {
+                    if (!isEditMode) enterEditMode()
+                    return true
+                }
+            }
         }
+        return super.dispatchKeyEvent(event)
     }
 
-    override fun onPause() {
-        super.onPause()
-        webView.onPause()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        webView.onResume()
-    }
-
-    override fun onDestroy() {
-        webView.destroy()
-        super.onDestroy()
-    }
+    override fun onPause() { super.onPause(); webView.onPause() }
+    override fun onResume() { super.onResume(); webView.onResume() }
+    override fun onDestroy() { webView.destroy(); super.onDestroy() }
 }

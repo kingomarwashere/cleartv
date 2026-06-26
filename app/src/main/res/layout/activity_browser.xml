@@ -33,9 +33,9 @@
 
     </FrameLayout>
 
-    <!-- Always-visible bottom nav bar -->
+    <!-- BROWSE MODE toolbar -->
     <LinearLayout
-        android:id="@+id/browser_toolbar"
+        android:id="@+id/toolbar_browse"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:background="#EE0D0D0D"
@@ -46,37 +46,40 @@
 
         <TextView
             android:id="@+id/btn_home"
-            android:layout_width="56dp"
+            android:layout_width="52dp"
             android:layout_height="44dp"
             android:gravity="center"
             android:text="⌂"
             android:textSize="22sp"
             android:textColor="@color/text_primary"
             android:focusable="true"
+            android:clickable="true"
             android:background="@drawable/nav_btn_bg"
             android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_back"
-            android:layout_width="48dp"
+            android:layout_width="44dp"
             android:layout_height="44dp"
             android:gravity="center"
             android:text="←"
             android:textSize="20sp"
             android:textColor="@color/text_primary"
             android:focusable="true"
+            android:clickable="true"
             android:background="@drawable/nav_btn_bg"
             android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_forward"
-            android:layout_width="48dp"
+            android:layout_width="44dp"
             android:layout_height="44dp"
             android:gravity="center"
             android:text="→"
             android:textSize="20sp"
             android:textColor="@color/text_primary"
             android:focusable="true"
+            android:clickable="true"
             android:background="@drawable/nav_btn_bg"
             android:layout_marginEnd="8dp" />
 
@@ -93,6 +96,7 @@
             android:ellipsize="middle"
             android:singleLine="true"
             android:focusable="true"
+            android:clickable="true"
             android:background="@drawable/nav_btn_bg"
             android:layout_marginEnd="8dp" />
 
@@ -101,9 +105,64 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/accent"
-            android:textSize="12sp"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp" />
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <!-- EDIT MODE toolbar (shown when user clicks URL bar) -->
+    <LinearLayout
+        android:id="@+id/toolbar_edit"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#EE0D0D0D"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/btn_cancel"
+            android:layout_width="52dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="✕"
+            android:textSize="18sp"
+            android:textColor="@color/text_secondary"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/nav_btn_bg"
+            android:layout_marginEnd="8dp" />
+
+        <EditText
+            android:id="@+id/url_input"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/input_bg"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:singleLine="true"
+            android:imeOptions="actionGo|flagNoExtractUi"
+            android:inputType="textUri|textNoSuggestions"
+            android:hint="Search or enter URL"
+            android:textColorHint="@color/text_hint"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/btn_go"
+            android:layout_width="64dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="GO"
+            android:textColor="@color/bg_primary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@drawable/go_btn_bg" />
 
     </LinearLayout>
 
