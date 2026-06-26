@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_primary">#0D0D0D</color>
+    <color name="bg_secondary">#1A1A1A</color>
+    <color name="bg_dialog">#1E1E1E</color>
+    <color name="accent">#00D4FF</color>
+    <color name="accent_dark">#0099BB</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#999999</color>
+    <color name="text_hint">#555555</color>
+    <color name="tile_bg">#1A1A1A</color>
+    <color name="tile_focused">#2A2A2A</color>
+    <color name="divider">#2A2A2A</color>
+</resources>

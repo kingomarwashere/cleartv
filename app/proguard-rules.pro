@@ -1,0 +1,4 @@
+-keep class com.maverick.cleartv.** { *; }
+-keepclassmembers class * extends android.webkit.WebViewClient { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**

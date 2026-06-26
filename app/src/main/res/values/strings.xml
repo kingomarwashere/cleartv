@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ClearTV</string>
+    <string name="settings">Settings</string>
+    <string name="search_hint">Search or enter address…</string>
+    <string name="adblock_enabled">Ad blocking enabled</string>
+    <string name="update_filter_lists">Update Filter Lists</string>
+    <string name="clear_data">Clear Browsing Data</string>
+</resources>
