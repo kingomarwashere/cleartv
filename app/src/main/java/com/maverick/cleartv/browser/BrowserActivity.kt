@@ -69,6 +69,7 @@ class BrowserActivity : Activity() {
 
         val url = intent.getStringExtra(EXTRA_URL) ?: "https://www.google.com"
         webView.loadSmart(url)
+        webView.requestFocus()
     }
 
     private fun setupToolbar() {
@@ -196,32 +197,46 @@ class BrowserActivity : Activity() {
         })
     }
 
-    // Route D-pad: down from WebView → focus toolbar; up from toolbar → WebView
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
+            val toolbarFocused = toolbarBrowse.findFocus() != null || toolbarEdit.findFocus() != null
+            val chromeClient = webView.webChromeClient as? TVWebChromeClient
+
             when (event.keyCode) {
+                // D-pad down → focus toolbar (unless already there)
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (webView.hasFocus() && !isEditMode) {
+                    if (!isEditMode && !toolbarFocused) {
                         findViewById<TextView>(R.id.btn_home).requestFocus()
                         return true
                     }
                 }
+                // D-pad up from toolbar → back to page
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (toolbarBrowse.hasFocus() || toolbarEdit.hasFocus()) {
+                    if (toolbarFocused) {
                         webView.requestFocus()
                         return true
                     }
                 }
-                KeyEvent.KEYCODE_BACK -> {
-                    val chromeClient = webView.webChromeClient as? TVWebChromeClient
+                // Cmd+L or Ctrl+L → focus URL bar (like every desktop browser)
+                KeyEvent.KEYCODE_L -> {
+                    if (event.isMetaPressed || event.isCtrlPressed) {
+                        enterEditMode(); return true
+                    }
+                }
+                // Backspace = go back when not editing
+                KeyEvent.KEYCODE_DEL -> {
+                    if (!isEditMode && !toolbarFocused) {
+                        if (webView.canGoBack()) { webView.goBack(); return true }
+                    }
+                }
+                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
                     if (isEditMode) { exitEditMode(); return true }
                     if (chromeClient?.isInFullscreen() == true) { chromeClient.exitFullscreen(); return true }
                     if (webView.canGoBack()) { webView.goBack(); return true }
                     return false
                 }
                 KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SEARCH -> {
-                    if (!isEditMode) enterEditMode()
-                    return true
+                    if (!isEditMode) enterEditMode(); return true
                 }
             }
         }
