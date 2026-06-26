@@ -10,10 +10,10 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import com.maverick.cleartv.ClearTVApp
 import com.maverick.cleartv.R
 import com.maverick.cleartv.ui.AddressBarDialog
+import com.maverick.cleartv.ui.HomeActivity
 
 class BrowserActivity : Activity() {
 
@@ -51,6 +51,12 @@ class BrowserActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
+
+        // Nav bar buttons
+        findViewById<TextView>(R.id.btn_home).setOnClickListener { goHome() }
+        findViewById<TextView>(R.id.btn_back).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
+        findViewById<TextView>(R.id.btn_forward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
+        urlBar.setOnClickListener { showAddressBar() }
 
         setupWebView()
 
@@ -98,6 +104,7 @@ class BrowserActivity : Activity() {
                 runOnUiThread {
                     window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
                     browserContainer.visibility = View.GONE
+                    findViewById<View>(R.id.browser_toolbar).visibility = View.GONE
                     fullscreenContainer.addView(view, ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -111,6 +118,7 @@ class BrowserActivity : Activity() {
                     fullscreenContainer.removeAllViews()
                     fullscreenContainer.visibility = View.GONE
                     browserContainer.visibility = View.VISIBLE
+                    findViewById<View>(R.id.browser_toolbar).visibility = View.VISIBLE
                 }
             }
         )
@@ -147,6 +155,12 @@ class BrowserActivity : Activity() {
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun goHome() {
+        startActivity(Intent(this, HomeActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        })
     }
 
     private fun showAddressBar() {
