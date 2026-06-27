@@ -134,8 +134,8 @@
             android:background="@drawable/nav_btn_bg"
             android:layout_marginEnd="8dp" />
 
-        <EditText
-            android:id="@+id/url_input"
+        <TextView
+            android:id="@+id/url_input_display"
             android:layout_width="0dp"
             android:layout_height="44dp"
             android:layout_weight="1"
@@ -145,10 +145,8 @@
             android:paddingStart="14dp"
             android:paddingEnd="14dp"
             android:singleLine="true"
-            android:imeOptions="actionGo|flagNoExtractUi"
-            android:inputType="textUri|textNoSuggestions"
-            android:hint="Search or enter URL"
-            android:textColorHint="@color/text_hint"
+            android:ellipsize="start"
+            android:gravity="center_vertical"
             android:layout_marginEnd="8dp" />
 
         <TextView

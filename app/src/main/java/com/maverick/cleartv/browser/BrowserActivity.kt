@@ -3,19 +3,17 @@ package com.maverick.cleartv.browser
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.maverick.cleartv.ClearTVApp
 import com.maverick.cleartv.R
 import com.maverick.cleartv.ui.HomeActivity
@@ -25,7 +23,7 @@ class BrowserActivity : Activity() {
     private lateinit var webView: TVWebView
     private lateinit var progressBar: ProgressBar
     private lateinit var urlBar: TextView
-    private lateinit var urlInput: EditText
+    private lateinit var urlInputDisplay: TextView
     private lateinit var blockedCountView: TextView
     private lateinit var fullscreenContainer: FrameLayout
     private lateinit var browserContainer: FrameLayout
@@ -34,6 +32,20 @@ class BrowserActivity : Activity() {
 
     private var blockedCount = 0
     private var isEditMode = false
+
+    // Manual text input buffer — bypasses IME entirely
+    private val inputBuffer = StringBuilder()
+    private val cursorHandler = Handler(Looper.getMainLooper())
+    private var cursorOn = true
+    private val cursorBlink = object : Runnable {
+        override fun run() {
+            if (isEditMode) {
+                cursorOn = !cursorOn
+                updateInputDisplay()
+                cursorHandler.postDelayed(this, 500)
+            }
+        }
+    }
 
     companion object {
         const val EXTRA_URL = "url"
@@ -53,15 +65,18 @@ class BrowserActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Never let the system resize the layout for the keyboard
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        // Never let the TV keyboard pop up — all input is handled manually
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        )
         setContentView(R.layout.activity_browser)
 
         fullscreenContainer = findViewById(R.id.fullscreen_container)
         browserContainer = findViewById(R.id.browser_container)
         progressBar = findViewById(R.id.progress_bar)
         urlBar = findViewById(R.id.url_bar)
-        urlInput = findViewById(R.id.url_input)
+        urlInputDisplay = findViewById(R.id.url_input_display)
         blockedCountView = findViewById(R.id.blocked_count)
         toolbarBrowse = findViewById(R.id.toolbar_browse)
         toolbarEdit = findViewById(R.id.toolbar_edit)
@@ -82,15 +97,6 @@ class BrowserActivity : Activity() {
         if (intent.getBooleanExtra(EXTRA_EDIT_MODE, false)) {
             webView.post { enterEditMode() }
         }
-
-        // Suppress TV keyboard whenever IME appears outside of URL edit mode
-        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
-            if (insets.isVisible(WindowInsetsCompat.Type.ime()) && !isEditMode) {
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                    .hideSoftInputFromWindow(window.decorView.windowToken, 0)
-            }
-            ViewCompat.onApplyWindowInsets(view, insets)
-        }
     }
 
     private fun setupToolbar() {
@@ -99,52 +105,42 @@ class BrowserActivity : Activity() {
         findViewById<TextView>(R.id.btn_forward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
         urlBar.setOnClickListener { enterEditMode() }
         urlBar.setOnFocusChangeListener { _, focused -> if (focused) enterEditMode() }
-
         findViewById<TextView>(R.id.btn_cancel).setOnClickListener { exitEditMode() }
         findViewById<TextView>(R.id.btn_go).setOnClickListener { commitUrl() }
-
-        urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
-                commitUrl(); true
-            } else false
-        }
-
-        urlInput.setOnKeyListener { _, keyCode, event ->
-            if (event.action == KeyEvent.ACTION_DOWN) {
-                when (keyCode) {
-                    KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { commitUrl(); true }
-                    KeyEvent.KEYCODE_ESCAPE -> { exitEditMode(); true }
-                    else -> false
-                }
-            } else false
-        }
     }
 
     private fun enterEditMode() {
         isEditMode = true
+        inputBuffer.clear()
+        inputBuffer.append(webView.url ?: "")
         toolbarBrowse.visibility = View.GONE
         toolbarEdit.visibility = View.VISIBLE
-        urlInput.setText(webView.url ?: "")
-        urlInput.selectAll()
-        // post() ensures the view is laid out and visible before requesting focus
-        urlInput.post {
-            urlInput.requestFocus()
-        }
+        updateInputDisplay()
+        // Hide any soft keyboard that might appear
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(window.decorView.windowToken, 0)
+        // Start cursor blink
+        cursorOn = true
+        cursorHandler.postDelayed(cursorBlink, 500)
     }
 
     private fun exitEditMode() {
         isEditMode = false
+        cursorHandler.removeCallbacks(cursorBlink)
         toolbarEdit.visibility = View.GONE
         toolbarBrowse.visibility = View.VISIBLE
         webView.requestFocus()
     }
 
     private fun commitUrl() {
-        val input = urlInput.text.toString().trim()
-        if (input.isNotEmpty()) {
-            webView.loadSmart(input)
-        }
+        val input = inputBuffer.toString().trim()
+        if (input.isNotEmpty()) webView.loadSmart(input)
         exitEditMode()
+    }
+
+    private fun updateInputDisplay() {
+        val cursor = if (isEditMode && cursorOn) "|" else ""
+        urlInputDisplay.text = "${inputBuffer}$cursor"
     }
 
     private fun setupWebView() {
@@ -217,52 +213,65 @@ class BrowserActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN) {
-            val toolbarFocused = toolbarBrowse.findFocus() != null || toolbarEdit.findFocus() != null
-            val chromeClient = webView.webChromeClient as? TVWebChromeClient
-
+        // Intercept ALL key events in edit mode — no EditText, no IME
+        if (event.action == KeyEvent.ACTION_DOWN && isEditMode) {
             when (event.keyCode) {
-                // D-pad down → focus toolbar (unless already there)
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (!isEditMode && !toolbarFocused) {
-                        findViewById<TextView>(R.id.btn_home).requestFocus()
-                        return true
-                    }
-                }
-                // D-pad up from toolbar → back to page
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (toolbarFocused) {
-                        webView.requestFocus()
-                        return true
-                    }
-                }
-                // Cmd+L or Ctrl+L → focus URL bar (like every desktop browser)
-                KeyEvent.KEYCODE_L -> {
-                    if (event.isMetaPressed || event.isCtrlPressed) {
-                        enterEditMode(); return true
-                    }
-                }
-                // Backspace = go back when not editing
                 KeyEvent.KEYCODE_DEL -> {
-                    if (!isEditMode && !toolbarFocused) {
-                        if (webView.canGoBack()) { webView.goBack(); return true }
+                    if (inputBuffer.isNotEmpty()) {
+                        inputBuffer.deleteCharAt(inputBuffer.length - 1)
+                        updateInputDisplay()
                     }
+                    return true
                 }
-                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
-                    if (isEditMode) { exitEditMode(); return true }
-                    if (chromeClient?.isInFullscreen() == true) { chromeClient.exitFullscreen(); return true }
-                    if (webView.canGoBack()) { webView.goBack(); return true }
-                    return false
+                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
+                    commitUrl(); return true
                 }
-                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SEARCH -> {
-                    if (!isEditMode) enterEditMode(); return true
+                KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
+                    exitEditMode(); return true
+                }
+                else -> {
+                    val unicode = event.getUnicodeChar(event.metaState)
+                    if (unicode > 0 && !Character.isISOControl(unicode)) {
+                        inputBuffer.append(unicode.toChar())
+                        updateInputDisplay()
+                        return true
+                    }
                 }
             }
         }
+
+        if (event.action == KeyEvent.ACTION_DOWN && !isEditMode) {
+            val toolbarFocused = toolbarBrowse.findFocus() != null
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (!toolbarFocused) {
+                        findViewById<TextView>(R.id.btn_home).requestFocus(); return true
+                    }
+                }
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (toolbarFocused) { webView.requestFocus(); return true }
+                }
+                KeyEvent.KEYCODE_L -> {
+                    if (event.isMetaPressed || event.isCtrlPressed) { enterEditMode(); return true }
+                }
+                KeyEvent.KEYCODE_DEL -> {
+                    if (!toolbarFocused && webView.canGoBack()) { webView.goBack(); return true }
+                }
+                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
+                    val cc = webView.webChromeClient as? TVWebChromeClient
+                    if (cc?.isInFullscreen() == true) { cc.exitFullscreen(); return true }
+                    if (webView.canGoBack()) { webView.goBack(); return true }
+                }
+                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SEARCH -> {
+                    enterEditMode(); return true
+                }
+            }
+        }
+
         return super.dispatchKeyEvent(event)
     }
 
-    override fun onPause() { super.onPause(); webView.onPause() }
+    override fun onPause() { super.onPause(); webView.onPause(); cursorHandler.removeCallbacks(cursorBlink) }
     override fun onResume() { super.onResume(); webView.onResume() }
     override fun onDestroy() { webView.destroy(); super.onDestroy() }
 }
