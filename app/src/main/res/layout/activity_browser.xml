@@ -109,6 +109,20 @@
 
     </LinearLayout>
 
+    <!-- Zero-size EditText that owns the InputConnection in edit mode,
+         stealing it away from the WebView so hardware keyboard input
+         goes through TextWatcher instead of the web page. -->
+    <EditText
+        android:id="@+id/hidden_input"
+        android:layout_width="1px"
+        android:layout_height="1px"
+        android:alpha="0"
+        android:inputType="textUri|textNoSuggestions"
+        android:imeOptions="actionGo|flagNoExtractUi|flagNoFullscreen"
+        android:importantForAutofill="no"
+        android:focusable="true"
+        android:focusableInTouchMode="true" />
+
     <!-- EDIT MODE toolbar (shown when user clicks URL bar) -->
     <LinearLayout
         android:id="@+id/toolbar_edit"

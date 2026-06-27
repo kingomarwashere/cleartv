@@ -5,11 +5,14 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -33,7 +36,6 @@ class BrowserActivity : Activity() {
     private var blockedCount = 0
     private var isEditMode = false
 
-    // Manual text input buffer — bypasses IME entirely
     private val inputBuffer = StringBuilder()
     private val cursorHandler = Handler(Looper.getMainLooper())
     private var cursorOn = true
@@ -46,6 +48,10 @@ class BrowserActivity : Activity() {
             }
         }
     }
+
+    // Steals InputConnection from WebView so hardware keyboard goes to us
+    private lateinit var hiddenInput: EditText
+    private var textWatcher: TextWatcher? = null
 
     companion object {
         const val EXTRA_URL = "url"
@@ -81,6 +87,8 @@ class BrowserActivity : Activity() {
         toolbarBrowse = findViewById(R.id.toolbar_browse)
         toolbarEdit = findViewById(R.id.toolbar_edit)
 
+        hiddenInput = findViewById(R.id.hidden_input)
+
         webView = TVWebView(this)
         browserContainer.addView(webView, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -110,23 +118,48 @@ class BrowserActivity : Activity() {
 
     private fun enterEditMode() {
         isEditMode = true
-        inputBuffer.clear()  // start blank so typing immediately replaces
+        inputBuffer.clear()
         toolbarBrowse.visibility = View.GONE
         toolbarEdit.visibility = View.VISIBLE
         updateInputDisplay()
-        // Hide any soft keyboard that might appear
-        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-            .hideSoftInputFromWindow(window.decorView.windowToken, 0)
-        // Start cursor blink
         cursorOn = true
         cursorHandler.postDelayed(cursorBlink, 500)
+
+        // Steal InputConnection from WebView — hardware keyboard now types here
+        hiddenInput.setText("")
+        hiddenInput.requestFocus()
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        // SHOW_FORCED binds the InputConnection even though keyboard stays hidden
+        imm.showSoftInput(hiddenInput, InputMethodManager.SHOW_FORCED)
+        // Now immediately hide the visual keyboard (TV/phone) but keep the binding
+        hiddenInput.post { imm.hideSoftInputFromWindow(hiddenInput.windowToken, 0) }
+
+        // TextWatcher receives all typed characters via InputConnection
+        textWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable) {
+                val newText = s.toString()
+                if (newText != inputBuffer.toString()) {
+                    inputBuffer.clear()
+                    inputBuffer.append(newText)
+                    updateInputDisplay()
+                }
+            }
+        }
+        hiddenInput.addTextChangedListener(textWatcher)
     }
 
     private fun exitEditMode() {
         isEditMode = false
         cursorHandler.removeCallbacks(cursorBlink)
+        textWatcher?.let { hiddenInput.removeTextChangedListener(it) }
+        textWatcher = null
+        hiddenInput.setText("")
         toolbarEdit.visibility = View.GONE
         toolbarBrowse.visibility = View.VISIBLE
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(hiddenInput.windowToken, 0)
         webView.requestFocus()
     }
 
@@ -211,30 +244,17 @@ class BrowserActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Intercept ALL key events in edit mode — no EditText, no IME
+        // In edit mode: only intercept control keys.
+        // Printable characters are handled by TextWatcher via InputConnection.
         if (event.action == KeyEvent.ACTION_DOWN && isEditMode) {
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DEL -> {
-                    if (inputBuffer.isNotEmpty()) {
-                        inputBuffer.deleteCharAt(inputBuffer.length - 1)
-                        updateInputDisplay()
-                    }
-                    return true
-                }
                 KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
                     commitUrl(); return true
                 }
                 KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
                     exitEditMode(); return true
                 }
-                else -> {
-                    val unicode = event.getUnicodeChar(event.metaState)
-                    if (unicode > 0 && !Character.isISOControl(unicode)) {
-                        inputBuffer.append(unicode.toChar())
-                        updateInputDisplay()
-                        return true
-                    }
-                }
+                // DEL handled by EditText itself — don't intercept
             }
         }
 
