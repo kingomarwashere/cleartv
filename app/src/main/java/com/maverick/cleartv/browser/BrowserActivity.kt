@@ -104,15 +104,13 @@ class BrowserActivity : Activity() {
         findViewById<TextView>(R.id.btn_back).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
         findViewById<TextView>(R.id.btn_forward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
         urlBar.setOnClickListener { enterEditMode() }
-        urlBar.setOnFocusChangeListener { _, focused -> if (focused) enterEditMode() }
         findViewById<TextView>(R.id.btn_cancel).setOnClickListener { exitEditMode() }
         findViewById<TextView>(R.id.btn_go).setOnClickListener { commitUrl() }
     }
 
     private fun enterEditMode() {
         isEditMode = true
-        inputBuffer.clear()
-        inputBuffer.append(webView.url ?: "")
+        inputBuffer.clear()  // start blank so typing immediately replaces
         toolbarBrowse.visibility = View.GONE
         toolbarEdit.visibility = View.VISIBLE
         updateInputDisplay()

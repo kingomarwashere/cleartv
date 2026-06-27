@@ -56,6 +56,9 @@ class HomeActivity : Activity() {
         findViewById<View>(R.id.settings_btn).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
+        // Start with focus on search bar so D-pad down goes to tiles
+        searchBar.requestFocus()
     }
 
     private fun launchAddressBar() {
