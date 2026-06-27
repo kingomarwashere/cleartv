@@ -29,8 +29,11 @@ class AdBlockEngine {
                     else blockedDomains.add(domain)
                 }
                 rule.pattern != null -> {
-                    if (rule.isException) whitelistPatterns.add(rule.pattern)
-                    else blockedPatterns.add(rule.pattern)
+                    // Cap regex patterns — domain rules cover 95% of blocks, patterns are slow
+                    if (blockedPatterns.size < 2000) {
+                        if (rule.isException) whitelistPatterns.add(rule.pattern)
+                        else blockedPatterns.add(rule.pattern)
+                    }
                 }
             }
             loaded++
