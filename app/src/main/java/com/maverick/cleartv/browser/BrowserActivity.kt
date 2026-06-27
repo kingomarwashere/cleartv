@@ -14,6 +14,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.maverick.cleartv.ClearTVApp
 import com.maverick.cleartv.R
 import com.maverick.cleartv.ui.HomeActivity
@@ -35,9 +37,15 @@ class BrowserActivity : Activity() {
 
     companion object {
         const val EXTRA_URL = "url"
+        const val EXTRA_EDIT_MODE = "edit_mode"
         fun start(activity: Activity, url: String) {
             activity.startActivity(Intent(activity, BrowserActivity::class.java).apply {
                 putExtra(EXTRA_URL, url)
+            })
+        }
+        fun startInEditMode(activity: Activity) {
+            activity.startActivity(Intent(activity, BrowserActivity::class.java).apply {
+                putExtra(EXTRA_EDIT_MODE, true)
             })
         }
     }
@@ -70,6 +78,19 @@ class BrowserActivity : Activity() {
         val url = intent.getStringExtra(EXTRA_URL) ?: "https://www.google.com"
         webView.loadSmart(url)
         webView.requestFocus()
+
+        if (intent.getBooleanExtra(EXTRA_EDIT_MODE, false)) {
+            webView.post { enterEditMode() }
+        }
+
+        // Suppress TV keyboard whenever IME appears outside of URL edit mode
+        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+            if (insets.isVisible(WindowInsetsCompat.Type.ime()) && !isEditMode) {
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .hideSoftInputFromWindow(window.decorView.windowToken, 0)
+            }
+            ViewCompat.onApplyWindowInsets(view, insets)
+        }
     }
 
     private fun setupToolbar() {
@@ -105,18 +126,16 @@ class BrowserActivity : Activity() {
         toolbarEdit.visibility = View.VISIBLE
         urlInput.setText(webView.url ?: "")
         urlInput.selectAll()
-        urlInput.requestFocus()
-        // Hide IME — Mac keyboard types directly, no TV keyboard needed
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(urlInput.windowToken, 0)
+        // post() ensures the view is laid out and visible before requesting focus
+        urlInput.post {
+            urlInput.requestFocus()
+        }
     }
 
     private fun exitEditMode() {
         isEditMode = false
         toolbarEdit.visibility = View.GONE
         toolbarBrowse.visibility = View.VISIBLE
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(urlInput.windowToken, 0)
         webView.requestFocus()
     }
 

@@ -59,9 +59,8 @@ class HomeActivity : Activity() {
     }
 
     private fun launchAddressBar() {
-        AddressBarDialog.show(this, "") { input ->
-            BrowserActivity.start(this, input)
-        }
+        // Go straight to browser in edit mode — no dialog needed
+        BrowserActivity.startInEditMode(this)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

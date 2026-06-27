@@ -3,11 +3,7 @@ package com.maverick.cleartv.browser
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
-import android.view.InputDevice
 import android.view.KeyEvent
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputConnection
-import android.view.inputmethod.InputMethodManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 
@@ -18,17 +14,6 @@ class TVWebView @JvmOverloads constructor(
 
     init {
         configure()
-        // Prevent WebView from ever requesting the soft keyboard
-        setOnFocusChangeListener { _, _ ->
-            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager)
-                ?.hideSoftInputFromWindow(windowToken, 0)
-        }
-    }
-
-    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
-        // Returning null prevents the TV keyboard from ever appearing.
-        // Hardware keyboard events still reach the WebView via dispatchKeyEvent.
-        return null
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -57,7 +42,6 @@ class TVWebView @JvmOverloads constructor(
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        // Back key handled by activity
         if (keyCode == KeyEvent.KEYCODE_BACK) return false
         return super.onKeyDown(keyCode, event)
     }
